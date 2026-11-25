@@ -944,34 +944,155 @@
   function renderDriftCards() {
     const curves = state.benchData?.drift_curves;
     if (!curves) return;
-    el.driftGrid.innerHTML = Object.values(curves).filter((c) => c.t_min && c.t_min.length > 1).map((c) => {
-      const svgW = 540, svgH = 220, padL = 40, padR = 14, padT = 16, padB = 26;
+
+    const list = Object.entries(curves).filter(([, c]) => c.t_min && c.t_min.length > 1 && c.series && c.series.length > 0);
+    // Build unified legend from first curve's series (baselines + MARC)
+    const legendEl = document.getElementById('driftLegend');
+    if (legendEl && list.length > 0) {
+      const seen = new Map();
+      for (const [, c] of list) {
+        for (const s of c.series) {
+          if (!seen.has(s.id)) seen.set(s.id, s);
+        }
+      }
+      legendEl.innerHTML = Array.from(seen.values())
+        .map((s) => `<span><i style="background:${s.color};height:${s.is_ours ? '3px' : '2px'}"></i>${s.label}</span>`)
+        .join('');
+    }
+
+    el.driftGrid.innerHTML = list.map(([key, c]) => {
+      const svgW = 560, svgH = 250, padL = 42, padR = 16, padT = 14, padB = 30;
       const cw = svgW - padL - padR, ch = svgH - padT - padB;
-      const maxE = Math.ceil(Math.max(1, ...c.base_err_m, ...c.ours_err_m) * 1.1);
+      const allVals = c.series.flatMap((s) => s.err_m.filter((v) => v !== null));
+      const rawMax = Math.max(5, ...allVals);
+      const yStep = rawMax > 20 ? 5 : 4;
+      const maxE = Math.ceil((rawMax * 1.08) / yStep) * yStep;
       const maxT = Math.max(1, c.t_min[c.t_min.length - 1]);
-      const pt = (t, e) => `${(padL + (t / maxT) * cw).toFixed(1)},${(padT + ch - (e / maxE) * ch).toFixed(1)}`;
-      const basePts = c.t_min.map((t, i) => pt(t, c.base_err_m[i])).join(' ');
-      const oursPts = c.t_min.map((t, i) => pt(t, c.ours_err_m[i])).join(' ');
-      const baseEnd = c.base_err_m[c.base_err_m.length - 1];
-      const oursEnd = c.ours_err_m[c.ours_err_m.length - 1];
+      const px = (t) => padL + (t / maxT) * cw;
+      const py = (e) => padT + ch - (e / maxE) * ch;
+
+      // Horizontal grid lines
+      let gridHtml = '';
+      for (let yv = 0; yv <= maxE; yv += yStep) {
+        const y = py(yv).toFixed(1);
+        gridHtml += `<line x1="${padL}" y1="${y}" x2="${svgW - padR}" y2="${y}" stroke="currentColor" stroke-opacity="${yv === 0 ? 0.25 : 0.09}" stroke-dasharray="${yv === 0 ? '' : '3,3'}" />`;
+        gridHtml += `<text x="${padL - 6}" y="${Number(y) + 3.5}" text-anchor="end" fill="#64748B" font-size="10" font-family="JetBrains Mono, monospace">${yv}m</text>`;
+      }
+
+      // Vertical time ticks (every 10 min; avoid colliding with final duration label)
+      const tStep = 10;
+      for (let tv = 0; tv <= maxT + 0.1; tv += tStep) {
+        if (maxT - tv > 0 && maxT - tv < 3.5) continue;
+        const x = px(Math.min(tv, maxT)).toFixed(1);
+        const isLast = Math.abs(tv - maxT) < 0.6;
+        gridHtml += `<line x1="${x}" y1="${padT}" x2="${x}" y2="${padT + ch}" stroke="currentColor" stroke-opacity="0.07" />`;
+        if (!isLast) {
+          gridHtml += `<text x="${x}" y="${svgH - 10}" text-anchor="middle" fill="#64748B" font-size="10" font-family="JetBrains Mono, monospace">${Math.round(tv)}m</text>`;
+        }
+      }
+      gridHtml += `<text x="${svgW - padR}" y="${svgH - 10}" text-anchor="end" fill="#64748B" font-size="10" font-family="JetBrains Mono, monospace">${Math.round(maxT)} min</text>`;
+
+      // Draw baselines first, MARC on top with subtle area shading
+      const ordered = c.series.filter((s) => !s.is_ours).concat(c.series.filter((s) => s.is_ours));
+      let pathsHtml = '';
+      for (const s of ordered) {
+        const pts = [];
+        let lastX = null, lastY = null;
+        for (let i = 0; i < c.t_min.length; i++) {
+          const v = s.err_m[i];
+          if (v === null) continue;
+          const x = px(c.t_min[i]).toFixed(1);
+          const y = py(v).toFixed(1);
+          pts.push(`${x},${y}`);
+          lastX = x; lastY = y;
+        }
+        if (s.is_ours && pts.length > 1) {
+          const areaPts = `${px(0).toFixed(1)},${py(0).toFixed(1)} ` + pts.join(' ') + ` ${lastX},${py(0).toFixed(1)}`;
+          pathsHtml += `<polygon points="${areaPts}" fill="${s.color}" fill-opacity="0.10" />`;
+        }
+        pathsHtml += `<polyline fill="none" stroke="${s.color}" stroke-width="${s.is_ours ? 2.6 : 1.55}" stroke-opacity="${s.is_ours ? 1 : 0.82}" stroke-linejoin="round" stroke-linecap="round" points="${pts.join(' ')}" />`;
+        if (lastX !== null) {
+          pathsHtml += `<circle cx="${lastX}" cy="${lastY}" r="${s.is_ours ? 3.5 : 2.5}" fill="${s.color}" />`;
+        }
+      }
+
+      const ours = c.series.find((s) => s.is_ours);
+      const worst = c.series.filter((s) => !s.is_ours).sort((a, b) => b.end_err_m - a.end_err_m)[0];
+      const badgeText = ours && worst
+        ? `End: MARC ${ours.end_err_m.toFixed(1)} m vs. ${worst.label} ${worst.end_err_m.toFixed(1)} m`
+        : '';
+
       return `
-        <div class="drift-card">
+        <div class="drift-card" data-drift-key="${key}">
           <div class="drift-head">
             <h3>${c.title}</h3>
-            <span class="drift-badge">End Error: ${baseEnd.toFixed(1)} m → ${oursEnd.toFixed(1)} m</span>
+            <span class="drift-badge">${badgeText}</span>
           </div>
-          <svg viewBox="0 0 ${svgW} ${svgH}" width="100%">
-            <line x1="${padL}" y1="${padT + ch}" x2="${svgW - padR}" y2="${padT + ch}" stroke="currentColor" stroke-opacity="0.22" />
-            <text x="4" y="${padT + 10}" fill="#94A3B8" font-size="10">${maxE}m</text>
-            <text x="4" y="${padT + ch}" fill="#94A3B8" font-size="10">0m</text>
-            <text x="${padL}" y="${svgH - 6}" fill="#94A3B8" font-size="10">0 min</text>
-            <text x="${svgW - padR}" y="${svgH - 6}" text-anchor="end" fill="#94A3B8" font-size="10">${maxT.toFixed(0)} min</text>
-            <polyline fill="none" stroke="#E11D48" stroke-width="1.9" points="${basePts}" />
-            <polyline fill="none" stroke="#00997A" stroke-width="2.4" points="${oursPts}" />
-          </svg>
+          <div class="drift-svg-wrap">
+            <svg class="drift-svg" viewBox="0 0 ${svgW} ${svgH}" data-drift-key="${key}">
+              ${gridHtml}
+              ${pathsHtml}
+              <line class="drift-cursor" x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + ch}" stroke="#475569" stroke-width="1" stroke-dasharray="3,3" opacity="0" />
+              <g class="drift-dots"></g>
+            </svg>
+            <div class="drift-tooltip" hidden></div>
+          </div>
         </div>
       `;
     }).join('');
+
+    // Bind interactive hover crosshair on both drift charts
+    el.driftGrid.querySelectorAll('.drift-svg').forEach((svg) => {
+      const key = svg.dataset.driftKey;
+      const c = curves[key];
+      const wrap = svg.closest('.drift-svg-wrap');
+      const tipEl = wrap.querySelector('.drift-tooltip');
+      const cursor = svg.querySelector('.drift-cursor');
+      const dotsG = svg.querySelector('.drift-dots');
+      const svgW = 560, svgH = 250, padL = 42, padR = 16, padT = 14, padB = 30;
+      const cw = svgW - padL - padR, ch = svgH - padT - padB;
+      const allVals = c.series.flatMap((s) => s.err_m.filter((v) => v !== null));
+      const rawMax = Math.max(5, ...allVals);
+      const yStep = rawMax > 20 ? 5 : 4;
+      const maxE = Math.ceil((rawMax * 1.08) / yStep) * yStep;
+      const maxT = Math.max(1, c.t_min[c.t_min.length - 1]);
+
+      svg.addEventListener('mousemove', (e) => {
+        const rect = svg.getBoundingClientRect();
+        const sx = ((e.clientX - rect.left) / rect.width) * svgW;
+        const tHover = Math.max(0, Math.min(maxT, ((sx - padL) / cw) * maxT));
+        let bestIdx = 0, bestDist = Infinity;
+        for (let i = 0; i < c.t_min.length; i++) {
+          const d = Math.abs(c.t_min[i] - tHover);
+          if (d < bestDist) { bestDist = d; bestIdx = i; }
+        }
+        const cx = padL + (c.t_min[bestIdx] / maxT) * cw;
+        cursor.setAttribute('x1', cx.toFixed(1));
+        cursor.setAttribute('x2', cx.toFixed(1));
+        cursor.setAttribute('opacity', '1');
+
+        const activeVals = [];
+        let dotsHtml = '';
+        for (const s of c.series) {
+          const v = s.err_m[bestIdx];
+          if (v === null) continue;
+          const cy = padT + ch - (v / maxE) * ch;
+          dotsHtml += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${s.is_ours ? 4 : 3}" fill="${s.color}" stroke="#fff" stroke-width="1" />`;
+          activeVals.push({ s, v });
+        }
+        dotsG.innerHTML = dotsHtml;
+        activeVals.sort((a, b) => a.v - b.v);
+        tipEl.innerHTML = `<div style="font-weight:700;margin-bottom:2px">t = ${c.t_min[bestIdx].toFixed(1)} min</div>` +
+          activeVals.map(({ s, v }) => `<div><span style="color:${s.color};font-weight:700">●</span> ${s.label}: <strong>${v.toFixed(2)}m</strong></div>`).join('');
+        tipEl.hidden = false;
+      });
+
+      svg.addEventListener('mouseleave', () => {
+        cursor.setAttribute('opacity', '0');
+        dotsG.innerHTML = '';
+        tipEl.hidden = true;
+      });
+    });
   }
 
   function renderDatasets() {
