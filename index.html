@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MARC · Interactive Inertial Trajectory Observatory</title>
+  <meta name="description" content="Interactive real-world trajectory observatory comparing MARC against state-of-the-art inertial navigation methods across OFFICEIO, RoNIN, and Suite-IN++." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a class="brand" href="#top">
+        <span class="brand-pulse" aria-hidden="true"></span>
+        <span class="brand-name">MARC</span>
+        <span class="brand-sep">/</span>
+        <span class="brand-sub">Trajectory Observatory</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary Navigation">
+        <a href="#demo">Interactive Demo</a>
+        <a href="#benchmarks">Benchmarks</a>
+        <a href="#drift">Drift Dynamics</a>
+        <a href="#datasets">Datasets</a>
+      </nav>
+      <div class="nav-actions">
+        <button id="themeToggle" class="icon-btn" type="button" title="Toggle Dark / Light Page Theme" aria-label="Toggle theme">
+          <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+        <a class="gh-btn" href="https://github.com/fanzhaorui744/-MARC-Motion-Aligned-Residual-Correction-" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          <span>GitHub</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="hero-grid-bg" aria-hidden="true"></div>
+      <div class="hero-glow hero-glow-cyan" aria-hidden="true"></div>
+      <div class="hero-glow hero-glow-violet" aria-hidden="true"></div>
+
+      <div class="container hero-content">
+        <div class="eyebrow">
+          <span class="dot-live"></span>
+          <span>15 REAL TEST TRAJECTORIES · 3 BENCHMARKS · DYNAMIC MULTI-METHOD REPLAY</span>
+        </div>
+        <h1>
+          High-Precision <span class="gradient-text">Long-Horizon</span><br />
+          Inertial Trajectory Reconstruction
+        </h1>
+        <p class="hero-subtitle">
+          Watch real trajectories draw dynamically from the origin across hour-scale indoor office sessions, smartphone pedestrian navigation, and tri-device wearable benchmarks. Toggle individual baselines against our best method and the black Ground Truth path.
+        </p>
+
+        <div class="hero-cta">
+          <a href="#demo" class="btn-primary">
+            <span>Launch Interactive Trajectory Arena</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M5 12h14M12 5l7 7-7 7"></path>
+            </svg>
+          </a>
+          <a href="#benchmarks" class="btn-secondary">Explore Benchmark Results</a>
+        </div>
+
+        <div class="kpi-grid" id="kpiGrid">
+          <div class="kpi-card kpi-cyan">
+            <div class="kpi-top">
+              <span class="kpi-value">-67.9%</span>
+              <span class="kpi-badge">OFFICEIO</span>
+            </div>
+            <div class="kpi-label">ATE Reduction vs. TartanIMU</div>
+            <div class="kpi-detail">8.02 m → 2.58 m across all 8 sessions</div>
+          </div>
+          <div class="kpi-card kpi-emerald">
+            <div class="kpi-top">
+              <span class="kpi-value">-53.2%</span>
+              <span class="kpi-badge">38–59 MIN</span>
+            </div>
+            <div class="kpi-label">Long-Horizon Drift Reduction</div>
+            <div class="kpi-detail">10.66 m → 4.99 m on hour-scale records</div>
+          </div>
+          <div class="kpi-card kpi-amber">
+            <div class="kpi-top">
+              <span class="kpi-value">-64.0%</span>
+              <span class="kpi-badge">PAIRED-5</span>
+            </div>
+            <div class="kpi-label">60s Relative Error vs. CoWear</div>
+            <div class="kpi-detail">1.70 m → 0.61 m RTE-60s</div>
+          </div>
+          <div class="kpi-card kpi-violet">
+            <div class="kpi-top">
+              <span class="kpi-value">11 / 11</span>
+              <span class="kpi-badge">127 SEQ</span>
+            </div>
+            <div class="kpi-label">Unseen Users Improved</div>
+            <div class="kpi-detail">81.4% win rate on Suite-IN++ unseen split</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive Trajectory Observatory -->
+    <section id="demo" class="section demo-section">
+      <div class="container">
+        <div class="section-header">
+          <div>
+            <span class="section-tag">INTERACTIVE MULTI-METHOD OBSERVATORY</span>
+            <h2>Dynamic Trajectory Replay — 3 Datasets × Top 5</h2>
+          </div>
+          <p class="section-desc">
+            Select a dataset and one of its top-5 sequences below. Click any algorithm button to dynamically reveal and draw its trajectory from the start point against the black Ground Truth path.
+          </p>
+        </div>
+
+        <div class="observatory-shell">
+          <!-- Step 1: 3-Dataset Switcher -->
+          <div class="ds-switcher" role="tablist" aria-label="Choose dataset">
+            <button class="ds-tab active" data-dataset="officeio" type="button">
+              <span class="ds-tab-title">OFFICEIO · Our Dataset</span>
+              <span class="ds-tab-sub">Top 5 (up to 58.7 min)</span>
+            </button>
+            <button class="ds-tab" data-dataset="ronin" type="button">
+              <span class="ds-tab-title">RoNIN · Smartphone</span>
+              <span class="ds-tab-sub">Top 5 (ResNet18 / TCN / LSTM)</span>
+            </button>
+            <button class="ds-tab" data-dataset="suiteinpp" type="button">
+              <span class="ds-tab-title">Suite-IN++ · Tri-Device</span>
+              <span class="ds-tab-sub">Top 5 (Phone + Watch + Earbuds)</span>
+            </button>
+          </div>
+
+          <!-- Step 2: Top 5 Sequences Selector -->
+          <div class="seq-bar" id="seqBar" role="tablist" aria-label="Select sequence"></div>
+
+          <!-- Step 3: Interactive Method Reveal Toggle Bar -->
+          <div class="method-dock">
+            <div class="method-dock-head">
+              <span class="dock-label">CLICK ALGORITHMS TO TOGGLE &amp; DRAW TRAJECTORIES:</span>
+              <div class="dock-presets">
+                <button class="preset-btn" id="presetAllBtn" type="button">Show All &amp; Replay</button>
+                <button class="preset-btn" id="presetGtOnlyBtn" type="button">Black GT Only (Click to Reveal)</button>
+                <button class="preset-btn" id="presetOursVsBestBtn" type="button">MARC vs. Main Baseline</button>
+              </div>
+            </div>
+            <div class="method-pills" id="methodPills"></div>
+          </div>
+
+          <!-- View Modes & Camera Controls -->
+          <div class="toolbar">
+            <div class="toolbar-group" role="group" aria-label="Visualization mode">
+              <button class="mode-btn active" data-mode="overlay" type="button">Overlay Dynamic Draw</button>
+              <button class="mode-btn" data-mode="split" type="button">Split-Screen (Best Base vs. MARC)</button>
+              <button class="mode-btn" data-mode="heatmap" type="button">MARC Error Heatmap</button>
+            </div>
+            <div class="toolbar-group">
+              <button class="toggle-btn active" id="toggleTethers" type="button" title="Draw real-time error tether lines from Ground Truth head to each active method">Error Tethers</button>
+              <button class="toggle-btn active" id="toggleSmooth" type="button" title="Smooth rapid pacing oscillations on 38–59 min OFFICEIO sessions">Path Skeleton (Long)</button>
+              <button class="toggle-btn" id="toggleFollow" type="button">Follow Cam</button>
+              <button class="action-btn" id="resetCamBtn" type="button">Reset View</button>
+            </div>
+          </div>
+
+          <!-- Stage: Bright Scientific Map Canvas + Live HUD -->
+          <div class="stage-grid">
+            <div class="canvas-panel">
+              <div class="canvas-header">
+                <div class="seq-meta">
+                  <span class="seq-title" id="activeSeqTitle">Loading trajectories...</span>
+                  <span class="seq-sub" id="activeSeqSub"></span>
+                </div>
+                <div class="legend-inline" id="legendInline"></div>
+              </div>
+
+              <div class="canvas-wrap" id="canvasWrap">
+                <canvas id="trajCanvas"></canvas>
+                <div class="heatmap-colorbar" id="heatmapColorbar" hidden>
+                  <span>0 m</span>
+                  <div class="colorbar-grad"></div>
+                  <span id="heatmapMaxLabel">10+ m</span>
+                </div>
+                <div class="canvas-hint">Drag to pan · Scroll to zoom</div>
+              </div>
+
+              <!-- Playback Controls -->
+              <div class="playback-bar">
+                <div class="pb-left">
+                  <button class="pb-btn" id="playPauseBtn" type="button" aria-label="Play or pause">
+                    <svg class="ic-play" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" hidden><polygon points="6,4 20,12 6,20"></polygon></svg>
+                    <svg class="ic-pause" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                  </button>
+                  <button class="pb-btn" id="restartBtn" type="button" title="Replay from START (t = 0)" aria-label="Restart">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2">
+                      <path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path>
+                      <path d="M3 3v5h5"></path>
+                    </svg>
+                  </button>
+                  <div class="speed-group" role="group" aria-label="Animation speed">
+                    <button class="spd-btn" data-speed="1" type="button">1×</button>
+                    <button class="spd-btn active" data-speed="2" type="button">2×</button>
+                    <button class="spd-btn" data-speed="5" type="button">5×</button>
+                    <button class="spd-btn" data-speed="10" type="button">10×</button>
+                  </div>
+                </div>
+                <div class="pb-scrubber">
+                  <input type="range" id="timeSlider" min="0" max="1000" value="0" aria-label="Timeline scrubber" />
+                </div>
+                <div class="pb-clock" id="timeClock">00:00 / 00:00</div>
+              </div>
+            </div>
+
+            <!-- Live Multi-Method Leaderboard & Error Curve -->
+            <aside class="telemetry-panel">
+              <div class="hud-card hud-highlight">
+                <div class="hud-k-row">
+                  <span class="hud-k">LIVE METHOD LEADERBOARD</span>
+                  <span class="hud-sub-note" id="hudDist">0 m traversed</span>
+                </div>
+                <div class="leaderboard" id="liveLeaderboard"></div>
+              </div>
+
+              <div class="hud-card hud-chart-card">
+                <div class="hud-k-row">
+                  <span class="hud-k">POSITION ERROR e(t) OVER TIME</span>
+                  <span class="hud-sub-note">Active methods</span>
+                </div>
+                <canvas id="errChartCanvas"></canvas>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quantitative Benchmarks -->
+    <section id="benchmarks" class="section">
+      <div class="container">
+        <div class="section-header">
+          <div>
+            <span class="section-tag">QUANTITATIVE BENCHMARKS</span>
+            <h2>Cross-Dataset &amp; Cross-Architecture Evaluation</h2>
+          </div>
+          <p class="section-desc">
+            Consistent reductions in Absolute Trajectory Error (ATE) and 60-second Relative Trajectory Error (RTE-60s) across indoor long-horizon, single-smartphone, and tri-device wearable benchmarks.
+          </p>
+        </div>
+
+        <div class="bench-tabs" role="tablist" aria-label="Benchmark datasets">
+          <button class="bench-tab active" data-bench="officeio" type="button">OFFICEIO · Long-Horizon (8 Sessions)</button>
+          <button class="bench-tab" data-bench="ronin" type="button">RoNIN · 3 Backbones (Seen &amp; Unseen)</button>
+          <button class="bench-tab" data-bench="suiteinpp" type="button">Suite-IN++ · 11 Unseen Users (127 Seq)</button>
+        </div>
+
+        <div class="bench-panel" id="benchPanel"></div>
+      </div>
+    </section>
+
+    <!-- Long-Horizon Drift Growth -->
+    <section id="drift" class="section drift-section">
+      <div class="container">
+        <div class="section-header">
+          <div>
+            <span class="section-tag">HOUR-SCALE DRIFT DYNAMICS</span>
+            <h2>Bounding Error Growth Over 38–59 Minutes</h2>
+          </div>
+          <p class="section-desc">
+            Empirical position error growth over continuous 38-minute and 59-minute indoor workdays. MARC bounds drift growth throughout the entire session.
+          </p>
+        </div>
+
+        <div class="drift-grid" id="driftGrid"></div>
+      </div>
+    </section>
+
+    <!-- Datasets Overview -->
+    <section id="datasets" class="section">
+      <div class="container">
+        <div class="section-header">
+          <div>
+            <span class="section-tag">EVALUATION BENCHMARKS</span>
+            <h2>Datasets &amp; Metrics</h2>
+          </div>
+          <p class="section-desc">
+            Evaluated across three complementary inertial navigation benchmarks spanning single-device and multi-device wearable setups.
+          </p>
+        </div>
+
+        <div class="dataset-grid" id="datasetGrid"></div>
+
+        <div class="metrics-strip">
+          <div class="metric-def">
+            <strong>ATE (m)</strong>
+            <span>Absolute Trajectory Error — root-mean-square 2D positional deviation against ground truth over the full trajectory.</span>
+          </div>
+          <div class="metric-def">
+            <strong>RTE-60s (m)</strong>
+            <span>Relative Trajectory Error over 60-second windows — measures local velocity &amp; heading consistency.</span>
+          </div>
+          <div class="metric-def">
+            <strong>PRE (%)</strong>
+            <span>Path Relative Error — percentage ratio of trajectory error to total path length traversed.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div>
+        <strong>MARC</strong> · Inertial Trajectory Reconstruction Benchmark Observatory
+      </div>
+      <div class="footer-links">
+        <a href="#demo">Interactive Demo</a>
+        <a href="#benchmarks">Benchmarks</a>
+        <a href="https://github.com/fanzhaorui744/-MARC-Motion-Aligned-Residual-Correction-" target="_blank" rel="noopener">GitHub Repository</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
