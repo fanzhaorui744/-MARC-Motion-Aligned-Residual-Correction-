@@ -47,12 +47,26 @@
 
 ### 1. OFFICEIO — Long-Horizon Indoor Locomotion (up to 58.7 min)
 
+**All 8 Test Recordings**
+
 | Method | All-8 ATE (m) ↓ | Long-3 ATE (m) ↓ | RTE-60s (m) ↓ | PRE (%) ↓ |
 |---|---:|---:|---:|---:|
 | TartanIMU | 8.02 | 12.18 | 1.30 | 1.99% |
+| RoNIN | 5.75 | 12.34 | 0.61 | 1.36% |
+| EqNIO | 5.73 | 11.33 | 0.56 | 1.43% |
 | Phone-Only Baseline | 5.18 | 10.66 | 0.52 | — |
 | Multi-Device Baseline | 3.83 | 7.72 | 0.49 | — |
 | **MARC (Ours)** | **2.58** | **4.99** | **0.47** | **0.74%** |
+
+**Paired-5 Dual-Device Recordings (Phone + Watch)**
+
+| Method | Paired-5 ATE (m) ↓ | RTE-60s (m) ↓ | PRE (%) ↓ |
+|---|---:|---:|---:|
+| DeepIT | 13.14 | 4.25 | 4.38% |
+| Suite-IN++ | 7.18 | 0.73 | 2.31% |
+| RoNIN | 6.36 | 0.58 | 1.69% |
+| CoWear | 3.89 | 1.70 | 2.18% |
+| **MARC (Ours)** | **3.12** | **0.61** | **1.02%** |
 
 ### 2. RoNIN — Smartphone Pedestrian Navigation (32 Test Sequences per Split)
 

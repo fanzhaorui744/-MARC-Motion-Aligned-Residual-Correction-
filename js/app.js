@@ -75,7 +75,9 @@
       }
     };
     addPts(seq.gt.x, seq.gt.y);
-    for (const m of seq.methods) {
+    const active = seq.methods.filter((m) => state.activeMethods.has(m.id));
+    const pool = active.length > 0 ? active : seq.methods;
+    for (const m of pool) {
       addPts(m.x, m.y);
     }
     const cx = 0.5 * (minX + maxX);
@@ -127,7 +129,13 @@
     state.seq = list[idx];
 
     state.showGT = true;
-    state.activeMethods = new Set(state.seq.methods.map((m) => m.id));
+    const defaultOfficeio = new Set(['marc', 'ronin', 'suite', 'eqnio', 'tartan']);
+    if (state.seq.dataset === 'OFFICEIO') {
+      const picks = state.seq.methods.filter((m) => defaultOfficeio.has(m.id)).map((m) => m.id);
+      state.activeMethods = new Set(picks.length > 0 ? picks : state.seq.methods.map((m) => m.id));
+    } else {
+      state.activeMethods = new Set(state.seq.methods.map((m) => m.id));
+    }
     state.methodProgress = {};
     for (const m of state.seq.methods) {
       state.methodProgress[m.id] = 1.0;
@@ -789,23 +797,25 @@
 
     if (tab === 'officeio') {
       const rows = b.officeio.summary_methods;
-      const maxVal = 13.5;
-      const svgW = 580, svgH = 265, padL = 44, padB = 46, padT = 20, padR = 16;
+      const p5rows = b.officeio.paired5_methods || [];
+      const maxVal = 13.8;
+      const svgW = 620, svgH = 265, padL = 38, padB = 46, padT = 20, padR = 14;
       const cw = svgW - padL - padR, ch = svgH - padT - padB;
       const gw = cw / rows.length;
       const bars = rows.map((r, i) => {
-        const x0 = padL + i * gw + gw * 0.16;
-        const bw = gw * 0.31;
+        const x0 = padL + i * gw + gw * 0.15;
+        const bw = gw * 0.32;
         const h1 = (r.all8_ate / maxVal) * ch;
         const h2 = (r.long3_ate / maxVal) * ch;
         const c1 = r.is_ours ? '#00997A' : '#94A3B8';
         const c2 = r.is_ours ? '#059669' : '#64748B';
+        const shortName = r.method.replace(' Baseline', '');
         return `
           <rect x="${x0}" y="${padT + ch - h1}" width="${bw}" height="${h1}" rx="4" fill="${c1}" />
-          <text x="${x0 + bw / 2}" y="${padT + ch - h1 - 5}" text-anchor="middle" fill="currentColor" font-size="10.5" font-weight="700">${r.all8_ate.toFixed(2)}</text>
-          <rect x="${x0 + bw + 4}" y="${padT + ch - h2}" width="${bw}" height="${h2}" rx="4" fill="${c2}" />
-          <text x="${x0 + bw + 4 + bw / 2}" y="${padT + ch - h2 - 5}" text-anchor="middle" fill="currentColor" font-size="10.5" font-weight="700">${r.long3_ate.toFixed(2)}</text>
-          <text x="${padL + (i + 0.5) * gw}" y="${svgH - 20}" text-anchor="middle" fill="currentColor" font-size="11" font-weight="${r.is_ours ? 700 : 500}">${r.method.replace(' Baseline', '')}</text>
+          <text x="${x0 + bw / 2}" y="${padT + ch - h1 - 5}" text-anchor="middle" fill="currentColor" font-size="9.8" font-weight="700">${r.all8_ate.toFixed(2)}</text>
+          <rect x="${x0 + bw + 3}" y="${padT + ch - h2}" width="${bw}" height="${h2}" rx="4" fill="${c2}" />
+          <text x="${x0 + bw + 3 + bw / 2}" y="${padT + ch - h2 - 5}" text-anchor="middle" fill="currentColor" font-size="9.8" font-weight="700">${r.long3_ate.toFixed(2)}</text>
+          <text x="${padL + (i + 0.5) * gw}" y="${svgH - 20}" text-anchor="middle" fill="currentColor" font-size="10.2" font-weight="${r.is_ours ? 700 : 500}">${shortName}</text>
         `;
       }).join('');
 
@@ -813,21 +823,25 @@
         <div class="bench-split">
           <div class="chart-box">
             <div class="chart-title">OFFICEIO ATE (m) — All 8 Sessions vs. Long 3 (38–59 min)</div>
-            <div class="chart-sub">Lower is better · Light bars: All 8 · Darker/Emerald bars: Long 3</div>
+            <div class="chart-sub">Lower is better · Light bars: All 8 · Darker/Teal bars: Long 3</div>
             <svg viewBox="0 0 ${svgW} ${svgH}" width="100%">
               <line x1="${padL}" y1="${padT + ch}" x2="${svgW - padR}" y2="${padT + ch}" stroke="currentColor" stroke-opacity="0.25" />
               ${bars}
             </svg>
           </div>
           <div class="chart-box">
-            <div class="chart-title">Summary &amp; CoWear Paired-5</div>
-            <div class="chart-sub">Verified multi-seed test means</div>
-            <table class="data-table">
-              <thead><tr><th>Method</th><th>All 8 ATE</th><th>Long 3</th><th>RTE-60s</th></tr></thead>
+            <div class="chart-title">All-8 &amp; Paired-5 Summary</div>
+            <div class="chart-sub">Single-device &amp; multi-device baselines on OFFICEIO</div>
+            <table class="data-table" style="margin-bottom:14px">
+              <thead><tr><th>Method (All 8)</th><th>All 8 ATE</th><th>Long 3</th><th>RTE-60s</th></tr></thead>
               <tbody>
                 ${rows.map((r) => `<tr class="${r.is_ours ? 'row-ours' : ''}"><td>${r.method}</td><td class="mono">${r.all8_ate.toFixed(2)} m</td><td class="mono">${r.long3_ate.toFixed(2)} m</td><td class="mono">${r.rte60.toFixed(2)} m</td></tr>`).join('')}
-                <tr><td>CoWear (Paired-5)</td><td class="mono">3.89 m</td><td class="mono">—</td><td class="mono">1.70 m</td></tr>
-                <tr class="row-ours"><td>MARC (Paired-5)</td><td class="mono">3.12 m</td><td class="mono">—</td><td class="mono">0.61 m</td></tr>
+              </tbody>
+            </table>
+            <table class="data-table">
+              <thead><tr><th>Method (Paired-5)</th><th>ATE</th><th>RTE-60s</th><th>PRE</th></tr></thead>
+              <tbody>
+                ${p5rows.map((r) => `<tr class="${r.is_ours ? 'row-ours' : ''}"><td>${r.method}</td><td class="mono">${r.ate.toFixed(2)} m</td><td class="mono">${r.rte60.toFixed(2)} m</td><td class="mono">${r.pre_pct.toFixed(2)}%</td></tr>`).join('')}
               </tbody>
             </table>
           </div>
