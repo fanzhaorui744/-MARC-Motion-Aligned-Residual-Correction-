@@ -161,13 +161,14 @@
           <!-- View Modes & Camera Controls -->
           <div class="toolbar">
             <div class="toolbar-group" role="group" aria-label="Visualization mode">
-              <button class="mode-btn active" data-mode="overlay" type="button">Overlay Dynamic Draw</button>
+              <button class="mode-btn active" data-mode="3d" type="button">3D Space-Time (X, Y, t)</button>
+              <button class="mode-btn" data-mode="overlay" type="button">2D Top-Down Map</button>
               <button class="mode-btn" data-mode="split" type="button">Split-Screen (Best Base vs. MARC)</button>
               <button class="mode-btn" data-mode="heatmap" type="button">MARC Error Heatmap</button>
             </div>
             <div class="toolbar-group">
               <button class="toggle-btn active" id="toggleTethers" type="button" title="Draw real-time error tether lines from Ground Truth head to each active method">Error Tethers</button>
-              <button class="toggle-btn active" id="toggleSmooth" type="button" title="Smooth rapid pacing oscillations on 38–59 min OFFICEIO sessions">Path Skeleton (Long)</button>
+              <button class="toggle-btn active" id="toggleRoom" type="button" title="Show true room boundary box and concentric error rings (2m, 5m, 10m, 20m)">Room &amp; Rings</button>
               <button class="toggle-btn" id="toggleFollow" type="button">Follow Cam</button>
               <button class="action-btn" id="resetCamBtn" type="button">Reset View</button>
             </div>
@@ -191,7 +192,7 @@
                   <div class="colorbar-grad"></div>
                   <span id="heatmapMaxLabel">10+ m</span>
                 </div>
-                <div class="canvas-hint">Drag to pan · Scroll to zoom</div>
+                <div class="canvas-hint" id="canvasHint">Drag to rotate 3D · Scroll to zoom</div>
               </div>
 
               <!-- Playback Controls -->
@@ -208,8 +209,9 @@
                     </svg>
                   </button>
                   <div class="speed-group" role="group" aria-label="Animation speed">
-                    <button class="spd-btn" data-speed="1" type="button">1×</button>
-                    <button class="spd-btn active" data-speed="2" type="button">2×</button>
+                    <button class="spd-btn" data-speed="0.5" type="button">0.5×</button>
+                    <button class="spd-btn active" data-speed="1" type="button">1×</button>
+                    <button class="spd-btn" data-speed="2" type="button">2×</button>
                     <button class="spd-btn" data-speed="5" type="button">5×</button>
                     <button class="spd-btn" data-speed="10" type="button">10×</button>
                   </div>
