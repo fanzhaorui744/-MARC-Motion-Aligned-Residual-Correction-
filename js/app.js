@@ -1,4 +1,4 @@
-/* MARC Interactive Trajectory Observatory (3D Space-Time + 2D Room & Rings) */
+/* MARC Interactive Trajectory Observatory (Pure 2D + Comet Tail + Room & Rings) */
 (() => {
   const GT_COLOR = '#0A0E17';
   const DATASET_FILES = {
@@ -17,7 +17,8 @@
     showGT: true,
     activeMethods: new Set(['marc']),
     methodProgress: {},
-    mode: '3d', // '3d' | 'overlay' | 'split' | 'heatmap'
+    mode: 'overlay', // 'overlay' | 'split' | 'heatmap'
+    cometTail: true,
     showTethers: true,
     showRoom: true,
     followCam: false,
@@ -26,8 +27,7 @@
     progress: 0,
     lastTs: null,
     cam: { cx: 0, cy: 0, span: 20 },
-    cam3d: { yaw: -0.78, pitch: 0.42, zoom: 1.0, cx: 0, cy: 0, span: 20 },
-    drag: { active: false, x: 0, y: 0, cx: 0, cy: 0, yaw: -0.78, pitch: 0.42 },
+    drag: { active: false, x: 0, y: 0, cx: 0, cy: 0 },
   };
 
   const el = {
@@ -37,11 +37,11 @@
     activeSeqSub: document.getElementById('activeSeqSub'),
     legendInline: document.getElementById('legendInline'),
     canvasWrap: document.getElementById('canvasWrap'),
-    canvasHint: document.getElementById('canvasHint'),
     trajCanvas: document.getElementById('trajCanvas'),
     errCanvas: document.getElementById('errChartCanvas'),
     heatmapColorbar: document.getElementById('heatmapColorbar'),
     heatmapMaxLabel: document.getElementById('heatmapMaxLabel'),
+    toggleComet: document.getElementById('toggleComet'),
     playPauseBtn: document.getElementById('playPauseBtn'),
     restartBtn: document.getElementById('restartBtn'),
     timeSlider: document.getElementById('timeSlider'),
@@ -84,17 +84,9 @@
     return { cx, cy, span };
   }
 
-  function setModeUI(mode) {
-    state.mode = mode;
-    document.querySelectorAll('.mode-btn').forEach((b) => b.classList.toggle('active', b.dataset.mode === mode));
-    el.canvasHint.textContent = mode === '3d' ? 'Drag to rotate 3D · Scroll to zoom' : 'Drag to pan · Scroll to zoom';
-  }
-
   function resetCamera() {
     if (!state.seq) return;
-    const b = computeBounds(state.seq);
-    state.cam = { cx: b.cx, cy: b.cy, span: b.span };
-    state.cam3d = { yaw: -0.78, pitch: 0.42, zoom: 1.0, cx: b.cx, cy: b.cy, span: b.span };
+    state.cam = computeBounds(state.seq);
   }
 
   async function loadDataset(key) {
@@ -106,8 +98,9 @@
       const resp = await fetch(DATASET_FILES[key]);
       state.cache[key] = (await resp.json()).sequences;
     }
-    // Use 3D Space-Time by default on OFFICEIO (long-horizon indoor); keep crisp 2D Top-Down on RoNIN & Suite-IN++
-    setModeUI(key === 'officeio' ? '3d' : 'overlay');
+    // Auto-enable Comet Tail on OFFICEIO (long confined indoor walks); full path on RoNIN & Suite-IN++
+    state.cometTail = key === 'officeio';
+    el.toggleComet.classList.toggle('active', state.cometTail);
     state.seqIndex = 0;
     renderSequenceBar();
     selectSequence(0);
@@ -337,7 +330,6 @@
     const [p1x, p1y] = proj.toPx(rx1, ry0);
 
     ctx.save();
-    // Concentric error rings centered on true room
     const [cx, cy] = proj.toPx(rcx, rcy);
     ctx.setLineDash([4, 4]);
     ctx.lineWidth = 1;
@@ -345,7 +337,7 @@
     for (const rad of [2, 5, 10, 20]) {
       const rPx = rad * proj.scale;
       if (rPx < 14 || rPx > 520) continue;
-      ctx.strokeStyle = rad === 2 ? 'rgba(0, 168, 132, 0.42)' : 'rgba(148, 163, 184, 0.35)';
+      ctx.strokeStyle = rad === 2 ? 'rgba(0, 168, 132, 0.45)' : 'rgba(148, 163, 184, 0.36)';
       ctx.beginPath();
       ctx.arc(x0 + cx, y0 + cy, rPx, 0, Math.PI * 2);
       ctx.stroke();
@@ -353,23 +345,26 @@
       ctx.fillText(`${rad}m`, x0 + cx + rPx * 0.707 + 3, y0 + cy - rPx * 0.707 - 2);
     }
 
-    // True office room box
     ctx.setLineDash([5, 3]);
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.045)';
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.04)';
     ctx.strokeStyle = '#334155';
     ctx.lineWidth = 1.4;
     ctx.fillRect(x0 + p0x, y0 + p0y, p1x - p0x, p1y - p0y);
     ctx.strokeRect(x0 + p0x, y0 + p0y, p1x - p0x, p1y - p0y);
 
     ctx.setLineDash([]);
-    ctx.fillStyle = '#334155';
+    const lbl = `True Room (${(rx1 - rx0).toFixed(1)}m×${(ry1 - ry0).toFixed(1)}m)`;
     ctx.font = '700 9.5px "JetBrains Mono", monospace';
-    ctx.fillText(`True Room (${(rx1 - rx0).toFixed(1)}m×${(ry1 - ry0).toFixed(1)}m)`, x0 + p0x, y0 + p0y - 5);
+    const tw = ctx.measureText(lbl).width + 8;
+    ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    ctx.fillRect(x0 + p0x - 2, y0 + p0y - 18, tw, 15);
+    ctx.fillStyle = '#334155';
+    ctx.fillText(lbl, x0 + p0x + 2, y0 + p0y - 7);
     ctx.restore();
   }
 
-  function drawPolyline(ctx, x0, y0, proj, xs, ys, seg, endIdx, color, width, alpha, dash = []) {
-    if (endIdx < 1) return null;
+  function drawPolylineRange(ctx, x0, y0, proj, xs, ys, seg, startIdx, endIdx, color, width, alpha, dash = []) {
+    if (endIdx <= startIdx || endIdx < 1) return null;
     ctx.save();
     ctx.strokeStyle = color;
     ctx.lineWidth = width;
@@ -381,10 +376,10 @@
     let lastValid = null;
     let started = false;
     ctx.beginPath();
-    for (let i = 0; i <= endIdx; i++) {
+    for (let i = Math.max(0, startIdx); i <= endIdx; i++) {
       const vx = xs[i], vy = ys[i];
       const ok = vx !== null && vy !== null && Number.isFinite(vx) && Number.isFinite(vy);
-      const sameSeg = i === 0 || seg[i] === seg[i - 1];
+      const sameSeg = i === Math.max(0, startIdx) || seg[i] === seg[i - 1];
       if (!ok) {
         started = false;
         continue;
@@ -401,6 +396,45 @@
     }
     ctx.stroke();
     ctx.restore();
+    return lastValid;
+  }
+
+  // Draws either full trail or faint history + luminous tapered Comet Tail
+  function drawTrajectory(ctx, x0, y0, proj, xs, ys, seq, endIdx, color, baseWidth, baseAlpha, isHighlight) {
+    if (endIdx < 1) return null;
+    if (!state.cometTail) {
+      return drawPolylineRange(ctx, x0, y0, proj, xs, ys, seq.seg, 0, endIdx, color, baseWidth, baseAlpha);
+    }
+
+    const tailWindowSec = seq.duration_s > 600 ? 90 : 35;
+    const cutoffT = Math.max(0, seq.t[endIdx] - tailWindowSec);
+    let tailStart = 0;
+    while (tailStart < endIdx && seq.t[tailStart] < cutoffT) tailStart++;
+
+    // 1. Subtle ghost history (0 -> tailStart)
+    if (tailStart > 0) {
+      drawPolylineRange(
+        ctx, x0, y0, proj, xs, ys, seq.seg, 0, tailStart,
+        color, Math.max(1.0, baseWidth * 0.55), isHighlight ? 0.16 : 0.12
+      );
+    }
+
+    // 2. Luminous tapered comet tail (tailStart -> endIdx) in gradient slices
+    const len = endIdx - tailStart;
+    if (len < 1) {
+      return drawPolylineRange(ctx, x0, y0, proj, xs, ys, seq.seg, 0, endIdx, color, baseWidth, baseAlpha);
+    }
+    const slices = Math.min(16, len);
+    let lastValid = null;
+    for (let s = 0; s < slices; s++) {
+      const aIdx = tailStart + Math.floor((s * len) / slices);
+      const bIdx = s === slices - 1 ? endIdx : tailStart + Math.floor(((s + 1) * len) / slices);
+      const frac = (s + 1) / slices;
+      const a = 0.25 + frac * (baseAlpha - 0.25);
+      const w = baseWidth * (0.6 + 0.55 * frac);
+      const tip = drawPolylineRange(ctx, x0, y0, proj, xs, ys, seq.seg, aIdx, bIdx, color, w, a);
+      if (tip) lastValid = tip;
+    }
     return lastValid;
   }
 
@@ -461,193 +495,6 @@
     ctx.restore();
   }
 
-  // 3D Space-Time Renderer (X, Y, Elapsed Time Z)
-  function render3DSpaceTime(ctx, W, H) {
-    ctx.fillStyle = '#FAFBFD';
-    ctx.fillRect(0, 0, W, H);
-
-    const seq = state.seq;
-    const n = seq.t.length;
-    const endIdx = Math.min(n - 1, Math.max(0, Math.floor(state.progress * (n - 1))));
-    const c3 = state.cam3d;
-    const zSpan = c3.span * 0.82;
-    const tMax = Math.max(1, seq.duration_s);
-
-    const cosY = Math.cos(c3.yaw), sinY = Math.sin(c3.yaw);
-    const cosP = Math.cos(c3.pitch), sinP = Math.sin(c3.pitch);
-    const scale = (Math.min(W, H) * 0.58 / c3.span) * c3.zoom;
-
-    const proj3 = (wx, wy, tSec) => {
-      const dx = wx - c3.cx;
-      const dy = wy - c3.cy;
-      const dz = (tSec / tMax - 0.5) * zSpan;
-      // Rotate around vertical Z (yaw), then tilt by pitch
-      const rx = dx * cosY - dy * sinY;
-      const ry = dx * sinY + dy * cosY;
-      const pz = ry * cosP - dz * sinP;
-      const py = ry * sinP + dz * cosP;
-      return {
-        x: W * 0.5 + rx * scale,
-        y: H * 0.50 - py * scale,
-        depth: pz,
-      };
-    };
-
-    // Floor grid (z = 0)
-    const halfGrid = Math.ceil(c3.span * 0.55);
-    const step = c3.span > 45 ? 10 : c3.span > 20 ? 5 : 2;
-    ctx.save();
-    ctx.strokeStyle = '#E2E8F0';
-    ctx.lineWidth = 1;
-    for (let g = -halfGrid; g <= halfGrid; g += step) {
-      const p1 = proj3(c3.cx + g, c3.cy - halfGrid, 0);
-      const p2 = proj3(c3.cx + g, c3.cy + halfGrid, 0);
-      ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
-      const q1 = proj3(c3.cx - halfGrid, c3.cy + g, 0);
-      const q2 = proj3(c3.cx + halfGrid, c3.cy + g, 0);
-      ctx.beginPath(); ctx.moveTo(q1.x, q1.y); ctx.lineTo(q2.x, q2.y); ctx.stroke();
-    }
-
-    // Vertical Time Axis on the right corner of floor
-    const axX = c3.cx + halfGrid * 0.85, axY = c3.cy - halfGrid * 0.85;
-    const axBot = proj3(axX, axY, 0);
-    const axTop = proj3(axX, axY, tMax);
-    ctx.strokeStyle = '#94A3B8';
-    ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.moveTo(axBot.x, axBot.y); ctx.lineTo(axTop.x, axTop.y); ctx.stroke();
-    ctx.font = '600 10px "JetBrains Mono", monospace';
-    ctx.fillStyle = '#475569';
-    for (let k = 0; k <= 4; k++) {
-      const tk = (tMax * k) / 4;
-      const pt = proj3(axX, axY, tk);
-      ctx.beginPath(); ctx.arc(pt.x, pt.y, 2.5, 0, Math.PI * 2); ctx.fill();
-      ctx.fillText(`${(tk / 60).toFixed(0)}m`, pt.x + 6, pt.y + 3);
-    }
-
-    // True Room Prism (when room_bbox exists and Room & Rings is active)
-    if (state.showRoom && seq.room_bbox) {
-      const [rx0, rx1, ry0, ry1] = seq.room_bbox;
-      const corners = [[rx0, ry0], [rx1, ry0], [rx1, ry1], [rx0, ry1]];
-      ctx.strokeStyle = 'rgba(15, 23, 42, 0.32)';
-      ctx.setLineDash([4, 3]);
-      ctx.lineWidth = 1.1;
-      for (const tz of [0, tMax]) {
-        ctx.beginPath();
-        corners.forEach(([cx, cy], idx) => {
-          const p = proj3(cx, cy, tz);
-          if (idx === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-        });
-        ctx.closePath();
-        ctx.stroke();
-      }
-      ctx.setLineDash([2, 3]);
-      corners.forEach(([cx, cy]) => {
-        const pb = proj3(cx, cy, 0);
-        const pt = proj3(cx, cy, tMax);
-        ctx.beginPath(); ctx.moveTo(pb.x, pb.y); ctx.lineTo(pt.x, pt.y); ctx.stroke();
-      });
-      ctx.setLineDash([]);
-      const lbl = proj3(rx0, ry1, tMax);
-      ctx.fillStyle = '#334155';
-      ctx.font = '700 10px "JetBrains Mono", monospace';
-      ctx.fillText(`True Room (${(rx1 - rx0).toFixed(1)}m×${(ry1 - ry0).toFixed(1)}m)`, lbl.x, lbl.y - 6);
-    }
-
-    // Faint full GT 3D column guide
-    if (state.showGT) {
-      ctx.strokeStyle = 'rgba(10, 14, 23, 0.14)';
-      ctx.lineWidth = 1.1;
-      ctx.beginPath();
-      for (let i = 0; i < n; i++) {
-        const p = proj3(seq.gt.x[i], seq.gt.y[i], seq.t[i]);
-        if (i === 0 || seq.seg[i] !== seq.seg[i - 1]) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-      }
-      ctx.stroke();
-    }
-
-    // Draw active methods in 3D (baselines first, MARC on top)
-    const activeList = seq.methods.filter((m) => state.activeMethods.has(m.id));
-    const ordered = activeList.filter((m) => !m.is_ours).concat(activeList.filter((m) => m.is_ours));
-    const tips = [];
-
-    for (const m of ordered) {
-      const mEnd = Math.floor(endIdx * (state.methodProgress[m.id] ?? 1));
-      ctx.save();
-      ctx.strokeStyle = m.color;
-      ctx.lineWidth = m.is_ours ? 2.8 : 1.7;
-      ctx.globalAlpha = m.is_ours ? 0.98 : 0.80;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      let started = false;
-      let lastPt = null;
-      let lastIdx = -1;
-      for (let i = 0; i <= mEnd; i++) {
-        const vx = m.x[i], vy = m.y[i];
-        if (vx === null || vy === null) { started = false; continue; }
-        const p = proj3(vx, vy, seq.t[i]);
-        const sameSeg = i === 0 || seq.seg[i] === seq.seg[i - 1];
-        if (!started || !sameSeg) { ctx.moveTo(p.x, p.y); started = true; } else { ctx.lineTo(p.x, p.y); }
-        lastPt = p;
-        lastIdx = i;
-      }
-      ctx.stroke();
-      ctx.restore();
-      if (lastPt && lastIdx >= 0) {
-        const errM = Math.hypot(m.x[lastIdx] - seq.gt.x[lastIdx], m.y[lastIdx] - seq.gt.y[lastIdx]);
-        tips.push({ m, tip: lastPt, errM });
-      }
-    }
-
-    // Black Ground Truth 3D trace
-    let gtTip = null;
-    if (state.showGT && endIdx >= 1) {
-      ctx.save();
-      ctx.strokeStyle = GT_COLOR;
-      ctx.lineWidth = 2.4;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      for (let i = 0; i <= endIdx; i++) {
-        const p = proj3(seq.gt.x[i], seq.gt.y[i], seq.t[i]);
-        if (i === 0 || seq.seg[i] !== seq.seg[i - 1]) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-        gtTip = p;
-      }
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // Horizontal time-slice error tethers & live distance badges
-    if (state.showTethers && gtTip) {
-      const worst = tips.filter((t) => !t.m.is_ours).sort((a, b) => b.errM - a.errM)[0];
-      const oursT = tips.find((t) => t.m.is_ours);
-      for (const { m, tip } of tips) {
-        ctx.save();
-        ctx.strokeStyle = m.color;
-        ctx.setLineDash([4, 3]);
-        ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        ctx.moveTo(gtTip.x, gtTip.y);
-        ctx.lineTo(tip.x, tip.y);
-        ctx.stroke();
-        ctx.restore();
-      }
-      if (oursT) drawTetherBadge(ctx, gtTip, oursT.tip, oursT.m.color, oursT.errM, 0.55, 11);
-      if (worst) drawTetherBadge(ctx, gtTip, worst.tip, worst.m.color, worst.errM, 0.72, -10);
-    }
-
-    for (const { m, tip } of tips) drawTipMarker(ctx, tip, m.color, m.is_ours ? 5.5 : 4.2);
-    drawTipMarker(ctx, gtTip, GT_COLOR, 4.8);
-
-    // Origin badge at (0,0,0)
-    const org = proj3(0, 0, 0);
-    ctx.beginPath(); ctx.arc(org.x, org.y, 5, 0, Math.PI * 2);
-    ctx.fillStyle = '#FFFFFF'; ctx.fill();
-    ctx.lineWidth = 2.2; ctx.strokeStyle = GT_COLOR; ctx.stroke();
-    ctx.font = '700 9.5px "JetBrains Mono", monospace';
-    ctx.fillStyle = GT_COLOR;
-    ctx.fillText('START (t=0)', org.x + 8, org.y + 4);
-    ctx.restore();
-  }
-
   function renderMainCanvas() {
     const canvas = el.trajCanvas;
     const rect = el.canvasWrap.getBoundingClientRect();
@@ -664,13 +511,6 @@
     const seq = state.seq;
     if (!seq) return;
 
-    el.heatmapColorbar.hidden = state.mode !== 'heatmap';
-
-    if (state.mode === '3d') {
-      render3DSpaceTime(ctx, W, H);
-      return;
-    }
-
     const n = seq.t.length;
     const endIdx = Math.min(n - 1, Math.max(0, Math.floor(state.progress * (n - 1))));
 
@@ -678,6 +518,8 @@
       state.cam.cx += (seq.gt.x[endIdx] - state.cam.cx) * 0.14;
       state.cam.cy += (seq.gt.y[endIdx] - state.cam.cy) * 0.14;
     }
+
+    el.heatmapColorbar.hidden = state.mode !== 'heatmap';
 
     if (state.mode === 'split') {
       const halfW = Math.floor(W / 2) - 1;
@@ -690,11 +532,13 @@
 
       drawGridAndScale(ctx, 0, 0, halfW, H, state.cam);
       drawRoomAndRings2D(ctx, 0, 0, projL, seq);
-      if (state.showGT) drawPolyline(ctx, 0, 0, projL, seq.gt.x, seq.gt.y, seq.seg, n - 1, '#CBD5E1', 1.1, 0.55, [4, 4]);
+      if (state.showGT && !state.cometTail) {
+        drawPolylineRange(ctx, 0, 0, projL, seq.gt.x, seq.gt.y, seq.seg, 0, n - 1, '#CBD5E1', 1.1, 0.55, [4, 4]);
+      }
       if (baseMethod) {
         const mEnd = Math.floor(endIdx * (state.methodProgress[baseMethod.id] ?? 1));
-        const bTip = drawPolyline(ctx, 0, 0, projL, baseMethod.x, baseMethod.y, seq.seg, mEnd, baseMethod.color, 2.3, 0.90);
-        const gTip = state.showGT ? drawPolyline(ctx, 0, 0, projL, seq.gt.x, seq.gt.y, seq.seg, endIdx, GT_COLOR, 2.2, 0.96) : null;
+        const bTip = drawTrajectory(ctx, 0, 0, projL, baseMethod.x, baseMethod.y, seq, mEnd, baseMethod.color, 2.3, 0.92, false);
+        const gTip = state.showGT ? drawTrajectory(ctx, 0, 0, projL, seq.gt.x, seq.gt.y, seq, endIdx, GT_COLOR, 2.3, 0.96, true) : null;
         if (state.showTethers && bTip && gTip) {
           ctx.save(); ctx.strokeStyle = baseMethod.color; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.4;
           ctx.beginPath(); ctx.moveTo(gTip.x, gTip.y); ctx.lineTo(bTip.x, bTip.y); ctx.stroke(); ctx.restore();
@@ -711,11 +555,13 @@
       const rx0 = halfW + 2;
       drawGridAndScale(ctx, rx0, 0, W - rx0, H, state.cam);
       drawRoomAndRings2D(ctx, rx0, 0, projR, seq);
-      if (state.showGT) drawPolyline(ctx, rx0, 0, projR, seq.gt.x, seq.gt.y, seq.seg, n - 1, '#CBD5E1', 1.1, 0.55, [4, 4]);
+      if (state.showGT && !state.cometTail) {
+        drawPolylineRange(ctx, rx0, 0, projR, seq.gt.x, seq.gt.y, seq.seg, 0, n - 1, '#CBD5E1', 1.1, 0.55, [4, 4]);
+      }
       if (oursMethod) {
         const mEnd = Math.floor(endIdx * (state.methodProgress[oursMethod.id] ?? 1));
-        const oTip = drawPolyline(ctx, rx0, 0, projR, oursMethod.x, oursMethod.y, seq.seg, mEnd, oursMethod.color, 2.7, 0.98);
-        const gTip = state.showGT ? drawPolyline(ctx, rx0, 0, projR, seq.gt.x, seq.gt.y, seq.seg, endIdx, GT_COLOR, 2.2, 0.96) : null;
+        const oTip = drawTrajectory(ctx, rx0, 0, projR, oursMethod.x, oursMethod.y, seq, mEnd, oursMethod.color, 2.8, 0.98, true);
+        const gTip = state.showGT ? drawTrajectory(ctx, rx0, 0, projR, seq.gt.x, seq.gt.y, seq, endIdx, GT_COLOR, 2.3, 0.96, true) : null;
         if (state.showTethers && oTip && gTip) {
           ctx.save(); ctx.strokeStyle = oursMethod.color; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.4;
           ctx.beginPath(); ctx.moveTo(gTip.x, gTip.y); ctx.lineTo(oTip.x, oTip.y); ctx.stroke(); ctx.restore();
@@ -732,7 +578,9 @@
     const proj = getViewportProjector(W, H, state.cam);
     drawRoomAndRings2D(ctx, 0, 0, proj, seq);
 
-    if (state.showGT) drawPolyline(ctx, 0, 0, proj, seq.gt.x, seq.gt.y, seq.seg, n - 1, '#CBD5E1', 1.1, 0.55, [4, 4]);
+    if (state.showGT && !state.cometTail) {
+      drawPolylineRange(ctx, 0, 0, proj, seq.gt.x, seq.gt.y, seq.seg, 0, n - 1, '#CBD5E1', 1.1, 0.55, [4, 4]);
+    }
 
     if (state.mode === 'heatmap') {
       const oursMethod = seq.methods.find((m) => m.is_ours) || seq.methods[0];
@@ -759,21 +607,21 @@
         ctx.beginPath(); ctx.moveTo(p1x, p1y); ctx.lineTo(p2x, p2y); ctx.stroke();
       }
       ctx.restore();
-      const gTip = state.showGT ? drawPolyline(ctx, 0, 0, proj, seq.gt.x, seq.gt.y, seq.seg, endIdx, GT_COLOR, 2.1, 0.95) : null;
+      const gTip = state.showGT ? drawTrajectory(ctx, 0, 0, proj, seq.gt.x, seq.gt.y, seq, endIdx, GT_COLOR, 2.2, 0.95, true) : null;
       drawTipMarker(ctx, gTip, GT_COLOR, 4.5);
       drawOriginBadge(ctx, 0, 0, proj);
       return;
     }
 
-    // 2D Top-Down Overlay
+    // 2D Top-Down Map (Overlay)
     const activeList = seq.methods.filter((m) => state.activeMethods.has(m.id));
     const ordered = activeList.filter((m) => !m.is_ours).concat(activeList.filter((m) => m.is_ours));
     const tips = [];
     for (const m of ordered) {
       const mEnd = Math.floor(endIdx * (state.methodProgress[m.id] ?? 1));
-      const tip = drawPolyline(
-        ctx, 0, 0, proj, m.x, m.y, seq.seg, mEnd,
-        m.color, m.is_ours ? 2.8 : 1.9, m.is_ours ? 0.98 : 0.85
+      const tip = drawTrajectory(
+        ctx, 0, 0, proj, m.x, m.y, seq, mEnd,
+        m.color, m.is_ours ? 2.9 : 2.0, m.is_ours ? 0.98 : 0.86, m.is_ours
       );
       if (tip) {
         const errM = Math.hypot(tip.wx - seq.gt.x[mEnd], tip.wy - seq.gt.y[mEnd]);
@@ -781,7 +629,7 @@
       }
     }
 
-    const gtTip = state.showGT ? drawPolyline(ctx, 0, 0, proj, seq.gt.x, seq.gt.y, seq.seg, endIdx, GT_COLOR, 2.2, 0.98) : null;
+    const gtTip = state.showGT ? drawTrajectory(ctx, 0, 0, proj, seq.gt.x, seq.gt.y, seq, endIdx, GT_COLOR, 2.4, 0.98, true) : null;
 
     if (state.showTethers && gtTip) {
       const worst = tips.filter((t) => !t.m.is_ours).sort((a, b) => b.errM - a.errM)[0];
@@ -800,7 +648,7 @@
     }
 
     for (const { m, tip } of tips) drawTipMarker(ctx, tip, m.color, m.is_ours ? 5.5 : 4.3);
-    drawTipMarker(ctx, gtTip, GT_COLOR, 4.7);
+    drawTipMarker(ctx, gtTip, GT_COLOR, 4.8);
     drawOriginBadge(ctx, 0, 0, proj);
   }
 
@@ -1162,7 +1010,15 @@
     });
 
     document.querySelectorAll('.mode-btn').forEach((btn) => {
-      btn.addEventListener('click', () => setModeUI(btn.dataset.mode));
+      btn.addEventListener('click', () => {
+        state.mode = btn.dataset.mode;
+        document.querySelectorAll('.mode-btn').forEach((b) => b.classList.toggle('active', b === btn));
+      });
+    });
+
+    el.toggleComet.addEventListener('click', () => {
+      state.cometTail = !state.cometTail;
+      el.toggleComet.classList.toggle('active', state.cometTail);
     });
 
     document.getElementById('toggleTethers').addEventListener('click', (e) => {
@@ -1242,41 +1098,22 @@
     });
 
     el.canvasWrap.addEventListener('mousedown', (e) => {
-      state.drag = {
-        active: true,
-        x: e.clientX,
-        y: e.clientY,
-        cx: state.cam.cx,
-        cy: state.cam.cy,
-        yaw: state.cam3d.yaw,
-        pitch: state.cam3d.pitch,
-      };
+      state.drag = { active: true, x: e.clientX, y: e.clientY, cx: state.cam.cx, cy: state.cam.cy };
     });
     window.addEventListener('mousemove', (e) => {
       if (!state.drag.active) return;
-      const dx = e.clientX - state.drag.x;
-      const dy = e.clientY - state.drag.y;
-      if (state.mode === '3d') {
-        state.cam3d.yaw = state.drag.yaw - dx * 0.008;
-        state.cam3d.pitch = Math.min(1.45, Math.max(0.05, state.drag.pitch + dy * 0.006));
-      } else {
-        const rect = el.canvasWrap.getBoundingClientRect();
-        const viewW = state.mode === 'split' ? rect.width * 0.5 : rect.width;
-        const scale = Math.min(viewW, rect.height) / state.cam.span;
-        state.cam.cx = state.drag.cx - dx / scale;
-        state.cam.cy = state.drag.cy + dy / scale;
-      }
+      const rect = el.canvasWrap.getBoundingClientRect();
+      const viewW = state.mode === 'split' ? rect.width * 0.5 : rect.width;
+      const scale = Math.min(viewW, rect.height) / state.cam.span;
+      state.cam.cx = state.drag.cx - (e.clientX - state.drag.x) / scale;
+      state.cam.cy = state.drag.cy + (e.clientY - state.drag.y) / scale;
     });
     window.addEventListener('mouseup', () => { state.drag.active = false; });
 
     el.canvasWrap.addEventListener('wheel', (e) => {
       e.preventDefault();
       const factor = e.deltaY > 0 ? 1.12 : 0.89;
-      if (state.mode === '3d') {
-        state.cam3d.zoom = Math.min(3.5, Math.max(0.45, state.cam3d.zoom / factor));
-      } else {
-        state.cam.span = Math.min(500, Math.max(2, state.cam.span * factor));
-      }
+      state.cam.span = Math.min(500, Math.max(2, state.cam.span * factor));
     }, { passive: false });
 
     document.querySelectorAll('.bench-tab').forEach((btn) => {

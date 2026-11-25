@@ -161,12 +161,12 @@
           <!-- View Modes & Camera Controls -->
           <div class="toolbar">
             <div class="toolbar-group" role="group" aria-label="Visualization mode">
-              <button class="mode-btn active" data-mode="3d" type="button">3D Space-Time (X, Y, t)</button>
-              <button class="mode-btn" data-mode="overlay" type="button">2D Top-Down Map</button>
+              <button class="mode-btn active" data-mode="overlay" type="button">2D Top-Down Map</button>
               <button class="mode-btn" data-mode="split" type="button">Split-Screen (Best Base vs. MARC)</button>
               <button class="mode-btn" data-mode="heatmap" type="button">MARC Error Heatmap</button>
             </div>
             <div class="toolbar-group">
+              <button class="toggle-btn active" id="toggleComet" type="button" title="Highlight the recent 90s trajectory tail so long indoor sessions stay crystal clear">Comet Tail (90s)</button>
               <button class="toggle-btn active" id="toggleTethers" type="button" title="Draw real-time error tether lines from Ground Truth head to each active method">Error Tethers</button>
               <button class="toggle-btn active" id="toggleRoom" type="button" title="Show true room boundary box and concentric error rings (2m, 5m, 10m, 20m)">Room &amp; Rings</button>
               <button class="toggle-btn" id="toggleFollow" type="button">Follow Cam</button>
@@ -192,7 +192,7 @@
                   <div class="colorbar-grad"></div>
                   <span id="heatmapMaxLabel">10+ m</span>
                 </div>
-                <div class="canvas-hint" id="canvasHint">Drag to rotate 3D · Scroll to zoom</div>
+                <div class="canvas-hint" id="canvasHint">Drag to pan · Scroll to zoom</div>
               </div>
 
               <!-- Playback Controls -->
