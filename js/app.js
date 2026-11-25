@@ -113,16 +113,8 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = `seq-pill${idx === state.seqIndex ? ' active' : ''}`;
-      const subRight = seq.pre_pct !== undefined
-        ? `${seq.best_ate_m.toFixed(2)} m (${seq.pre_pct.toFixed(2)}% path)`
-        : `MARC ${seq.best_ate_m.toFixed(2)} m`;
-      btn.innerHTML = `
-        <div class="seq-pill-top">
-          <span class="seq-pill-name">${seq.title}</span>
-          <span class="pill-gain">${seq.headline_gain_pct.toFixed(1)}%</span>
-        </div>
-        <span class="seq-pill-sub">${seq.split_tag} · ${subRight}</span>
-      `;
+      const shortTitle = seq.title.replace(' · ', ' ');
+      btn.innerHTML = `<span>${shortTitle}</span><span class="pill-gain">${seq.headline_gain_pct.toFixed(0)}%</span>`;
       btn.addEventListener('click', () => selectSequence(idx));
       el.seqBar.appendChild(btn);
     });
@@ -149,11 +141,10 @@
 
     const preNote = state.seq.pre_pct !== undefined ? ` · PRE ${state.seq.pre_pct.toFixed(2)}%` : '';
     el.activeSeqTitle.textContent = `${state.seq.dataset} · ${state.seq.title}`;
-    el.activeSeqSub.textContent = `${state.seq.subtitle} · Path ${state.seq.path_len_m.toFixed(0)} m · ${(state.seq.duration_s / 60).toFixed(1)} min${preNote}`;
+    el.activeSeqSub.textContent = `${state.seq.path_len_m.toFixed(0)} m · ${(state.seq.duration_s / 60).toFixed(1)} min${preNote}`;
 
     document.querySelectorAll('.seq-pill').forEach((b, i) => b.classList.toggle('active', i === idx));
     renderMethodPills();
-    renderInlineLegend();
   }
 
   function renderMethodPills() {
@@ -168,12 +159,10 @@
     gtBtn.innerHTML = `
       <span class="method-swatch" style="background:${GT_COLOR}"></span>
       <span>Ground Truth</span>
-      <span class="method-ate">0.00 m</span>
     `;
     gtBtn.addEventListener('click', () => {
       state.showGT = !state.showGT;
       renderMethodPills();
-      renderInlineLegend();
     });
     el.methodPills.appendChild(gtBtn);
 
@@ -186,7 +175,7 @@
       btn.innerHTML = `
         <span class="method-swatch" style="background:${m.color}"></span>
         <span>${m.label}</span>
-        <span class="method-ate">${m.ate_m.toFixed(2)} m</span>
+        <span class="method-ate">${m.ate_m.toFixed(2)}m</span>
       `;
       btn.addEventListener('click', () => {
         if (state.activeMethods.has(m.id)) {
@@ -196,25 +185,9 @@
           state.methodProgress[m.id] = state.progress > 0.05 ? 0.02 : 1.0;
         }
         renderMethodPills();
-        renderInlineLegend();
       });
       el.methodPills.appendChild(btn);
     });
-  }
-
-  function renderInlineLegend() {
-    const seq = state.seq;
-    if (!seq) return;
-    const parts = [];
-    if (state.showGT) {
-      parts.push(`<span class="leg-item"><i class="leg-line" style="background:${GT_COLOR}"></i> Ground Truth</span>`);
-    }
-    seq.methods.forEach((m) => {
-      if (state.activeMethods.has(m.id)) {
-        parts.push(`<span class="leg-item"><i class="leg-line" style="background:${m.color}"></i> ${m.label}</span>`);
-      }
-    });
-    el.legendInline.innerHTML = parts.join('');
   }
 
   function updatePlayButtons() {
@@ -825,8 +798,8 @@
         const bw = gw * 0.31;
         const h1 = (r.all8_ate / maxVal) * ch;
         const h2 = (r.long3_ate / maxVal) * ch;
-        const c1 = r.is_ours ? '#00F5D4' : '#64748B';
-        const c2 = r.is_ours ? '#10B981' : '#475569';
+        const c1 = r.is_ours ? '#00997A' : '#94A3B8';
+        const c2 = r.is_ours ? '#059669' : '#64748B';
         return `
           <rect x="${x0}" y="${padT + ch - h1}" width="${bw}" height="${h1}" rx="4" fill="${c1}" />
           <text x="${x0 + bw / 2}" y="${padT + ch - h1 - 5}" text-anchor="middle" fill="currentColor" font-size="10.5" font-weight="700">${r.all8_ate.toFixed(2)}</text>
@@ -873,9 +846,9 @@
         const h2 = (s.ours_ate / maxVal) * ch;
         const pct = ((s.ours_ate - s.base_ate) / s.base_ate * 100).toFixed(1);
         return `
-          <rect x="${x0}" y="${padT + ch - h1}" width="${bw}" height="${h1}" rx="4" fill="#FF5C77" fill-opacity="0.85" />
-          <rect x="${x0 + bw + 3}" y="${padT + ch - h2}" width="${bw}" height="${h2}" rx="4" fill="#00F5D4" />
-          <text x="${x0 + bw + 3 + bw / 2}" y="${padT + ch - h2 - 5}" text-anchor="middle" fill="#00F5D4" font-size="9.8" font-weight="700">${pct}%</text>
+          <rect x="${x0}" y="${padT + ch - h1}" width="${bw}" height="${h1}" rx="4" fill="#E11D48" fill-opacity="0.78" />
+          <rect x="${x0 + bw + 3}" y="${padT + ch - h2}" width="${bw}" height="${h2}" rx="4" fill="#00997A" />
+          <text x="${x0 + bw + 3 + bw / 2}" y="${padT + ch - h2 - 5}" text-anchor="middle" fill="#00997A" font-size="9.8" font-weight="700">${pct}%</text>
           <text x="${padL + (i + 0.5) * gw}" y="${svgH - 25}" text-anchor="middle" fill="currentColor" font-size="10">${s.backbone.replace('RoNIN-', '')}</text>
           <text x="${padL + (i + 0.5) * gw}" y="${svgH - 12}" text-anchor="middle" fill="#94A3B8" font-size="9.5">(${s.split})</text>
         `;
@@ -885,7 +858,7 @@
         <div class="bench-split">
           <div class="chart-box">
             <div class="chart-title">RoNIN Across 3 Architectures (Seen &amp; Unseen)</div>
-            <div class="chart-sub">Coral: RoNIN Baseline · Cyan: + MARC (Ours) · 32 test sequences per split</div>
+            <div class="chart-sub">Coral: RoNIN Baseline · Teal: + MARC (Ours) · 32 test sequences per split</div>
             <svg viewBox="0 0 ${svgW} ${svgH}" width="100%">
               <line x1="${padL}" y1="${padT + ch}" x2="${svgW - padR}" y2="${padT + ch}" stroke="currentColor" stroke-opacity="0.25" />
               ${bars}
@@ -918,8 +891,8 @@
         const y = padT + i * rh + 3;
         return `
           <text x="${padL - 8}" y="${y + rh * 0.55}" text-anchor="end" fill="currentColor" font-size="10.5" font-weight="600">${u.user}</text>
-          <rect x="${padL}" y="${y}" width="${bw}" height="${Math.max(8, rh - 7)}" rx="4" fill="#00F5D4" />
-          <text x="${padL + bw + 6}" y="${y + rh * 0.55}" fill="#00F5D4" font-size="10" font-weight="700">-${d.toFixed(2)} m (${u.n_seq} seq)</text>
+          <rect x="${padL}" y="${y}" width="${bw}" height="${Math.max(8, rh - 7)}" rx="4" fill="#00997A" />
+          <text x="${padL + bw + 6}" y="${y + rh * 0.55}" fill="#00997A" font-size="10" font-weight="700">-${d.toFixed(2)} m (${u.n_seq} seq)</text>
         `;
       }).join('');
 
@@ -979,8 +952,8 @@
             <text x="4" y="${padT + ch}" fill="#94A3B8" font-size="10">0m</text>
             <text x="${padL}" y="${svgH - 6}" fill="#94A3B8" font-size="10">0 min</text>
             <text x="${svgW - padR}" y="${svgH - 6}" text-anchor="end" fill="#94A3B8" font-size="10">${maxT.toFixed(0)} min</text>
-            <polyline fill="none" stroke="#FF5C77" stroke-width="2.1" points="${basePts}" />
-            <polyline fill="none" stroke="#00F5D4" stroke-width="2.5" points="${oursPts}" />
+            <polyline fill="none" stroke="#E11D48" stroke-width="1.9" points="${basePts}" />
+            <polyline fill="none" stroke="#00997A" stroke-width="2.4" points="${oursPts}" />
           </svg>
         </div>
       `;
@@ -1070,7 +1043,6 @@
       state.playing = true;
       updatePlayButtons();
       renderMethodPills();
-      renderInlineLegend();
     });
 
     document.getElementById('presetGtOnlyBtn').addEventListener('click', () => {
@@ -1081,7 +1053,6 @@
       state.playing = false;
       updatePlayButtons();
       renderMethodPills();
-      renderInlineLegend();
     });
 
     document.getElementById('presetOursVsBestBtn').addEventListener('click', () => {
@@ -1094,7 +1065,6 @@
       state.playing = true;
       updatePlayButtons();
       renderMethodPills();
-      renderInlineLegend();
     });
 
     el.canvasWrap.addEventListener('mousedown', (e) => {
